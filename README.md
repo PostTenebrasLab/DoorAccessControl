@@ -26,3 +26,5 @@ Libraries :
 la librairy RFIDuino (https://github.com/marcboon/RFIDuino.git) est requise par le lecteur RFID "sm130" 
 
 
+Notes :
+ - Attention, utiliser une alimentation externe, l'usb ne suffit pas 
