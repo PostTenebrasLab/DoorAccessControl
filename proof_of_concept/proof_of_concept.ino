@@ -1,10 +1,13 @@
 
 #include <SPI.h>
 #include <Ethernet.h>
+#include <RTClib.h>
 
 #include <Wire.h>
 #include <SM130.h> 
 
+RTC_DS1307 RTC;
+int rtc[7];
 byte validTagId[] = {0x72, 0xF5, 0x5A, 0xBF}; // 72F55ABF
 SM130 RFIDuino;
 
@@ -12,29 +15,46 @@ SM130 RFIDuino;
 // Newer Ethernet shields have a MAC address printed on a sticker on the shield
 byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
-// Initialize the Ethernet client library
-// with the IP address and port of the server 
-// that you want to connect to (port 80 is default for HTTP):
-EthernetClient client;
+EthernetServer webServer = EthernetServer(80);
+byte* tagNum;
+bool tagPresent;
 
 void setup()
 {
+  tagPresent = false;
+  
+  // pin for the relay
+  pinMode(7, OUTPUT);
+  digitalWrite(7, LOW);
+  
+  // pin for the door switch
+  pinMode(8, INPUT);
+  pinMode(9, INPUT);
   
   Wire.begin();
   Serial.begin(115200);
   Serial.println("Post Tenebras Lab Door Access Control");
   
-  //if (Ethernet.begin(mac) == 0) {
-  //  Serial.println("Failed to configure Ethernet using DHCP");
-  //}
+  Serial.print("Setting up RTC clock...");
+  RTC.begin();
+  if (! RTC.isrunning()) {
+    Serial.println(" RTC is NOT running! Using compilation time as actual time.");
+    // following line sets the RTC to the date & time this sketch was compiled
+    RTC.adjust(DateTime(__DATE__, __TIME__));
+  }
+  else {
+    Serial.println(" OK");
+  }
   
-  // pin for the relay
-  pinMode(7, OUTPUT);
-  digitalWrite(7, LOW);
+  // setup ethernet
+  Serial.print("Setting up ethernet...");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+  }
+  webServer.begin();
+ Serial.println("  OK");
  
-  // pin for the door switch
- 
- 
+ Serial.print("Setting up RFID reader... ");
   // use pin 5 and 6 for the RFID status
   RFIDuino.address = 0x30;
   RFIDuino.pinRESET = 5; 
@@ -43,25 +63,26 @@ void setup()
   RFIDuino.reset();
 
   // read firmware version
-  Serial.print("Version ");
-  Serial.println(RFIDuino.getFirmwareVersion());
+  Serial.print("version ");
+  Serial.print(RFIDuino.getFirmwareVersion());
   
   // help
    RFIDuino.setAntennaPower(true);
    delay(100);
    RFIDuino.seekTag();
+   Serial.println("  OK");
 }
-
 
 void loop()
 {
   // from 0 to 775
   int lightSensor = analogRead(A1);
-  Serial.print("light sensor = ");
-  Serial.println(lightSensor);
+  //Serial.print("light sensor = ");
+  //Serial.println(lightSensor);
   
   if(RFIDuino.available()) {
-      byte* tagNum = RFIDuino.getTagNumber();
+      tagNum = RFIDuino.getTagNumber();
+      tagPresent = true;
       //if(tagNum[0] == 0 && tagNum[1] == 0 && tagNum[2] == 0 && tagNum[3] == 0) 
       Serial.print("tag read :");
       Serial.print(tagNum[0], HEX);
@@ -70,7 +91,7 @@ void loop()
       Serial.println(tagNum[3], HEX);
       Serial.print("tag = ");
       Serial.println(RFIDuino.getTagString());
-      
+     
       if(!memcmp(tagNum, validTagId, 4)) {
         Serial.println("tag is accepted");
         digitalWrite(7, HIGH);
@@ -82,6 +103,63 @@ void loop()
       }
       delay(500);
       RFIDuino.seekTag();
+  }
+   
+  
+  EthernetClient client = webServer.available();
+  if (client) {
+    Serial.println("web client connected");
+    // read bytes from the incoming client and write them back
+    // to any clients connected to the server:
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connnection: close");
+    client.println();
+    client.println("<!DOCTYPE HTML>");
+    client.println("<html>");
+    // add a meta refresh tag, so the browser pulls again every 5 seconds:
+    client.println("<meta http-equiv=\"refresh\" content=\"5\">");
+    client.print("lightSensor = ");
+    client.print(lightSensor);
+    client.println("<br />");
+    
+    client.print("door switch 1 = ");
+    client.print(digitalRead(8) == HIGH ? "OPEN" : "CLOSE");
+    client.println("<br />");
+    
+    client.print("door switch 2 = ");
+    client.print(digitalRead(9) == HIGH ? "OPEN" : "CLOSE");
+    client.println("<br />");
+    
+    if(tagPresent) {
+      client.print("tag read :");
+      client.print(tagNum[0], HEX);
+      client.print(tagNum[1], HEX);
+      client.print(tagNum[2], HEX);
+      client.println(tagNum[3], HEX);
+      client.println("<br />");
+      tagPresent = false;
+   }
+   
+   
+   client.print("rtc time :");
+   DateTime now = RTC.now();
+    client.print(now.year(), DEC);
+    client.print('/');
+    client.print(now.month(), DEC);
+    client.print('/');
+    client.print(now.day(), DEC);
+    client.print(' ');
+    client.print(now.hour(), DEC);
+    client.print(':');
+    client.print(now.minute(), DEC);
+    client.print(':');
+    client.print(now.second(), DEC);
+    client.println();
+  client.println("<br />");
+  
+  client.println("</html>");
+  client.stop();
   }
   
 }
