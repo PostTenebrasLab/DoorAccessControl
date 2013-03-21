@@ -34,6 +34,9 @@ void setup()
   Serial.begin(115200);
   Serial.println("RFIDuino");
 
+  RFIDuino.address = 0x30;
+  RFIDuino.pinRESET = 5;
+  RFIDuino.pinDREADY = 6;
   // reset RFIDuino
   RFIDuino.reset();
 
