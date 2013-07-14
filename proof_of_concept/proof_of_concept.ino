@@ -14,10 +14,21 @@ SM130 RFIDuino;
 // Enter a MAC address for your controller below.
 // Newer Ethernet shields have a MAC address printed on a sticker on the shield
 byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte ip[] = { 192, 168, 81, 177 }; // need to be changed to a free fixed ip
+byte gateway[] = { 192, 168, 81, 1 }; // rewrite it to .80.1 when ip will be chosen
+// the subnet:
+byte subnet[] = { 255, 255, 255, 0 };
 
 EthernetServer webServer = EthernetServer(80);
 byte* tagNum;
 bool tagPresent;
+
+// Time counter check time duration longer than loop execution
+// 
+unsigned long OPEN_DOOR_TIMEOUT = 15000; // door switch must detect changes; if not, send an alert (door is open even if it "look closed")
+unsigned long TimerA // door timeout timer
+
+
 
 void setup()
 {
@@ -28,8 +39,12 @@ void setup()
   digitalWrite(7, LOW);
   
   // pin for the door switch
-  pinMode(8, INPUT);
-  pinMode(9, INPUT);
+  pinMode(8, INPUT); // top door's switch
+  pinMode(9, INPUT); // locker door's switch
+
+  // pin for the LED
+  pinMode(3, OUTPUT);
+  digitalWrite(3, LOW);
   
   Wire.begin();
   Serial.begin(115200);
@@ -48,7 +63,7 @@ void setup()
   
   // setup ethernet
   Serial.print("Setting up ethernet...");
-  if (Ethernet.begin(mac) == 0) {
+  if (Ethernet.begin(mac, ip, gateway, subnet) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
   }
   webServer.begin();
@@ -79,7 +94,12 @@ void loop()
   int lightSensor = analogRead(A1);
   //Serial.print("light sensor = ");
   //Serial.println(lightSensor);
-  
+
+  // One switch LOW and other HIGN mean that the door is closed AND unlocked
+  if( digitalRead(8) == LOW && digitalRead(9) == HIGH ) {
+      digitalWrite(3, HIGH)
+  }
+
   if(RFIDuino.available()) {
       tagNum = RFIDuino.getTagNumber();
       tagPresent = true;
@@ -94,9 +114,12 @@ void loop()
      
       if(!memcmp(tagNum, validTagId, 4)) {
         Serial.println("tag is accepted");
-        digitalWrite(7, HIGH);
-        delay(300);
-        digitalWrite(7, LOW);
+
+        if( digitalRead(9) == LOW ) {
+           digitalWrite(7, HIGH);
+           delay(300);
+           digitalWrite(7, LOW);
+        }
       }
       else {
         Serial.println("tag is rejected");
@@ -104,8 +127,7 @@ void loop()
       delay(500);
       RFIDuino.seekTag();
   }
-   
-  
+
   EthernetClient client = webServer.available();
   if (client) {
     Serial.println("web client connected");
