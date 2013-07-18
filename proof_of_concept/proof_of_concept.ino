@@ -12,7 +12,8 @@ byte validTagId[] = {0x72, 0xF5, 0x5A, 0xBF}; // 72F55ABF
 SM130 RFIDuino;
 
 // Enter a MAC address for your controller below.
-// Newer Ethernet shields have a MAC address printed on a sticker on the shield
+//Newer Ethernet shields have a MAC address printed on a sticker on the shield
+//
 byte mac[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 byte ip[] = { 192, 168, 81, 177 }; // need to be changed to a free fixed ip
 byte gateway[] = { 192, 168, 81, 1 }; // rewrite it to .80.1 when ip will be chosen
@@ -23,28 +24,35 @@ EthernetServer webServer = EthernetServer(80);
 byte* tagNum;
 bool tagPresent;
 
+// PINs variables
+//
+int RELAY = 7;
+int SWITCH_TOP = 8;
+int SWITCH_LOCKER = 9;
+int RED = 3;
+int RESET = 5;
+int READY = 6;
+
 // Time counter check time duration longer than loop execution
 // 
 unsigned long OPEN_DOOR_TIMEOUT = 15000; // door switch must detect changes; if not, send an alert (door is open even if it "look closed")
 unsigned long TimerA // door timeout timer
-
-
 
 void setup()
 {
   tagPresent = false;
   
   // pin for the relay
-  pinMode(7, OUTPUT);
-  digitalWrite(7, LOW);
+  pinMode(RELAY, OUTPUT);
+  digitalWrite(RELAY, LOW);
   
   // pin for the door switch
-  pinMode(8, INPUT); // top door's switch
-  pinMode(9, INPUT); // locker door's switch
+  pinMode(SWITCH_TOP, INPUT); // top door's switch
+  pinMode(SWITCH_LOCKER, INPUT); // locker door's switch
 
   // pin for the LED
-  pinMode(3, OUTPUT);
-  digitalWrite(3, LOW);
+  pinMode(RED, OUTPUT);
+  digitalWrite(RED, LOW);
   
   Wire.begin();
   Serial.begin(115200);
@@ -72,8 +80,8 @@ void setup()
  Serial.print("Setting up RFID reader... ");
   // use pin 5 and 6 for the RFID status
   RFIDuino.address = 0x30;
-  RFIDuino.pinRESET = 5; 
-  RFIDuino.pinDREADY = 6;
+  RFIDuino.pinRESET = RESET; 
+  RFIDuino.pinDREADY = READY;
   // reset RFIDuino
   RFIDuino.reset();
 
@@ -96,8 +104,8 @@ void loop()
   //Serial.println(lightSensor);
 
   // One switch LOW and other HIGN mean that the door is closed AND unlocked
-  if( digitalRead(8) == LOW && digitalRead(9) == HIGH ) {
-      digitalWrite(3, HIGH)
+  if( digitalRead(SWITCH_TOP) == LOW && digitalRead(SWITCH_LOCKER) == HIGH ) {
+      digitalWrite(RED, HIGH)
   }
 
   if(RFIDuino.available()) {
@@ -116,9 +124,9 @@ void loop()
         Serial.println("tag is accepted");
 
         if( digitalRead(9) == LOW ) {
-           digitalWrite(7, HIGH);
+           digitalWrite(RELAY, HIGH);
            delay(300);
-           digitalWrite(7, LOW);
+           digitalWrite(RELAY, LOW);
         }
       }
       else {
@@ -146,11 +154,11 @@ void loop()
     client.println("<br />");
     
     client.print("door switch 1 = ");
-    client.print(digitalRead(8) == HIGH ? "OPEN" : "CLOSE");
+    client.print(digitalRead(SWITCH_TOP) == HIGH ? "OPEN" : "CLOSE");
     client.println("<br />");
     
     client.print("door switch 2 = ");
-    client.print(digitalRead(9) == HIGH ? "OPEN" : "CLOSE");
+    client.print(digitalRead(SWITCH_LOCKER) == HIGH ? "OPEN" : "CLOSE");
     client.println("<br />");
     
     if(tagPresent) {
