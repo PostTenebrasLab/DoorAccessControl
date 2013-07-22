@@ -6,10 +6,10 @@
 #include <Wire.h>
 #include <SM130.h> 
 
-RTC_DS1307 RTC;
+
 int rtc[7];
 byte validTagId[] = {0x72, 0xF5, 0x5A, 0xBF}; // 72F55ABF
-SM130 RFIDuino;
+
 
 // Enter a MAC address for your controller below.
 //Newer Ethernet shields have a MAC address printed on a sticker on the shield
@@ -36,7 +36,10 @@ int READY = 6;
 // Time counter check time duration longer than loop execution
 // 
 unsigned long OPEN_DOOR_TIMEOUT = 15000; // door switch must detect changes; if not, send an alert (door is open even if it "look closed")
-unsigned long TimerA // door timeout timer
+unsigned long TimerA; // door timeout timer
+
+RTC_DS1307 RTC;
+SM130 RFIDuino;
 
 void setup()
 {
@@ -71,10 +74,12 @@ void setup()
   
   // setup ethernet
   Serial.print("Setting up ethernet...");
-  if (Ethernet.begin(mac, ip, gateway, subnet) == 0) {
+  
+  if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
   }
-  webServer.begin();
+
+ webServer.begin();
  Serial.println("  OK");
  
  Serial.print("Setting up RFID reader... ");
@@ -105,7 +110,7 @@ void loop()
 
   // One switch LOW and other HIGN mean that the door is closed AND unlocked
   if( digitalRead(SWITCH_TOP) == LOW && digitalRead(SWITCH_LOCKER) == HIGH ) {
-      digitalWrite(RED, HIGH)
+      digitalWrite(RED, HIGH);
   }
 
   if(RFIDuino.available()) {
