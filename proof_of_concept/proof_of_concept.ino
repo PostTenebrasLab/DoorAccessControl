@@ -74,10 +74,10 @@ void setup()
   
   // setup ethernet
   Serial.print("Setting up ethernet...");
-  
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP");
-  }
+  Ethernet.begin(mac, ip, gateway, subnet);
+  //if (Ethernet.begin(mac) == 0) {
+  //  Serial.println("Failed to configure Ethernet using DHCP");
+  //}
 
  webServer.begin();
  Serial.println("  OK");
